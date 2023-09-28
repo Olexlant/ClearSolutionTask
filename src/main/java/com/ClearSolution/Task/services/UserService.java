@@ -25,6 +25,7 @@ public class UserService {
         public ResponseEntity<User> createUser(User user) {
             LocalDate minBirthDate = LocalDate.now().minusYears(minAge);
             if (user.getBirthDate().isAfter(minBirthDate)) {
+                userRepository.save(user);
                 return new ResponseEntity<>(user, HttpStatus.OK);
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User must be at least "+minAge+" years old");
