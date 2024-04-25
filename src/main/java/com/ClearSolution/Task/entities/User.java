@@ -22,7 +22,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Email(message = "invalid email address")
+    @Email(message = "Invalid email address")
     @NotBlank(message = "Email cannot be empty ")
     private String email;
 

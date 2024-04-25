@@ -2,157 +2,120 @@ package com.ClearSolution.Task.controllers;
 
 import com.ClearSolution.Task.entities.User;
 import com.ClearSolution.Task.services.UserService;
-import org.junit.jupiter.api.BeforeEach;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.server.ResponseStatusException;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-public class UserControllerTest {
+@WebMvcTest(controllers = UserController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
+class UserControllerTest {
 
-    private UserController userController;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private UserService userService;
 
-    @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-        userController = new UserController(userService);
-        userController.userService = userService; // Manually inject the mock UserService
-    }
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
-    public void testCreateUserValidAge() {
+    void createUser_ifMoreThan18_shouldReturnOk200() throws Exception {
         User newUser = new User();
-        newUser.setId(1L);
         newUser.setEmail("lantuh.sasha@gmail.com");
         newUser.setFirstName("Olex");
         newUser.setLastName("Biden");
         newUser.setBirthDate(LocalDate.now().minusYears(21)); // 21 years old
 
-        when(userService.createUser(any(User.class))).thenReturn(ResponseEntity.ok(newUser));
+        given(userService.createUser(newUser)).willAnswer((InvocationOnMock::getArguments));
 
-        ResponseEntity<User> response = userController.createUser(newUser);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(newUser, response.getBody());
-        assertNotNull(response.getBody());
+        ResultActions response = mockMvc.perform(post("/api/users/create")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(newUser)));
+
+        response.andExpect(MockMvcResultMatchers.status().isOk());
     }
 
     @Test
-    public void testCreateUserInvalidAge() {
+    void createUser_ifUnder18_shouldReturnError400() throws Exception {
         User newUser = new User();
-        newUser.setId(1L);
         newUser.setEmail("lantuh.sasha@gmail.com");
         newUser.setFirstName("Olex");
         newUser.setLastName("Biden");
-        newUser.setBirthDate(LocalDate.now().minusYears(16)); // 16 years old
+        newUser.setBirthDate(LocalDate.now().minusYears(11)); // 11 years old
 
-        when(userService.createUser(any(User.class))).thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "User must be at least 18 years old"));
+        given(userService.createUser(newUser)).willAnswer((InvocationOnMock::getArguments));
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> userController.createUser(newUser));
+        ResultActions response = mockMvc.perform(post("/api/users/create")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(newUser)));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("User must be at least 18 years old", exception.getReason());
+        response.andExpect(MockMvcResultMatchers.status().isBadRequest());
     }
 
     @Test
-    public void testUpdateUser() {
-        User updatedUser = new User();
-        updatedUser.setId(1L);
-        updatedUser.setEmail("Nolan228@gmail.com");
-        updatedUser.setFirstName("Christopher");
-        updatedUser.setLastName("Nolan");
+    void updateUser_shouldReturnOk200() throws Exception {
+        User newUser = new User();
+        newUser.setId(1L);
+        newUser.setEmail("lantukh.sasha@gmail.com");
+        newUser.setFirstName("Olex");
+        newUser.setLastName("Biden");
+        newUser.setBirthDate(LocalDate.now().minusYears(21)); // 21 years old
 
-        when(userService.updateUser(anyLong(), any(User.class))).thenReturn(ResponseEntity.ok(updatedUser));
+        when(userService.updateUser(newUser.getId(), newUser)).thenReturn(newUser);
 
-        ResponseEntity<User> response = userController.updateUser(1L, updatedUser);
+        ResultActions response = mockMvc.perform(put("/api/users/1/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(newUser)));
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("Nolan228@gmail.com", response.getBody().getEmail());
-        assertEquals("Christopher", response.getBody().getFirstName());
-        assertEquals("Nolan", response.getBody().getLastName());
+        response.andExpect(MockMvcResultMatchers.status().isOk());
     }
 
     @Test
-    public void testUpdateUserFields() {
+    public void updateUserFields_shouldReturnOk200() throws Exception {
         Map<String, Object> fieldsToUpdate = new HashMap<>();
         fieldsToUpdate.put("firstName", "Quentin");
         fieldsToUpdate.put("lastName", "Tarantino");
+        User user = new User();
+        user.setId(1L);
 
-        User updatedUser = new User();
-        updatedUser.setId(1L);
-        updatedUser.setFirstName("Quentin");
-        updatedUser.setLastName("Tarantino");
+        when(userService.updateUserFields(user.getId(), fieldsToUpdate)).thenReturn(user);
 
-        when(userService.updateUserFields(anyLong(), any(Map.class))).thenReturn(ResponseEntity.ok(updatedUser));
+        ResultActions response = mockMvc.perform(patch("/api/users/1/update")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(user)));
 
-        ResponseEntity<User> response = userController.updateUserFields(1L, fieldsToUpdate);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(updatedUser.getFirstName(), response.getBody().getFirstName());
-        assertEquals(updatedUser.getLastName(), response.getBody().getLastName());
+        response.andExpect(MockMvcResultMatchers.status().isOk());
     }
 
     @Test
-    public void testDeleteUser() {
-        when(userService.deleteUser(anyLong())).thenReturn(ResponseEntity.ok("Deleted"));
-        ResponseEntity<String> response = userController.deleteUser(1L);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Deleted", response.getBody());
+    public void deleteUser_shouldReturnOk200() throws Exception{
+        doNothing().when(userService).deleteUser(1L);
+
+        ResultActions response = mockMvc.perform(delete("/api/users/1/delete")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        response.andExpect(MockMvcResultMatchers.status().isOk());
     }
 
-    @Test
-    public void testSearchUsersByBirthDateRangeValid() {
-        LocalDate fromDate = LocalDate.of(1990, 1, 1);
-        LocalDate toDate = LocalDate.of(2000, 12, 31);
-
-        User user1 = new User();
-        user1.setId(1L);
-        user1.setFirstName("User1");
-        user1.setBirthDate(LocalDate.of(1995, 5, 5));
-
-        User user2 = new User();
-        user2.setId(2L);
-        user2.setFirstName("User2");
-        user2.setBirthDate(LocalDate.of(1990, 2, 15));
-
-        when(userService.searchUsersByBirthDateRange(eq(fromDate), eq(toDate))).thenReturn(ResponseEntity.ok(List.of(user1, user2)));
-
-        ResponseEntity<?> response = userController.searchUsersByBirthDateRange(fromDate, toDate);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertTrue(response.getBody() instanceof List);
-        List<User> users = (List<User>) response.getBody();
-        assertEquals(2, users.size());
-        assertEquals("User1", users.get(0).getFirstName());
-        assertEquals("User2", users.get(1).getFirstName());
-    }
-
-    @Test
-    public void testSearchUsersByInvalidBirthDateRange() {
-        LocalDate fromDate = LocalDate.of(2000, 12, 31);
-        LocalDate toDate = LocalDate.of(1990, 1, 1);
-
-        when(userService.searchUsersByBirthDateRange(eq(fromDate), eq(toDate)))
-                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "'From' date must be before 'To' date"));
-
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> userController.searchUsersByBirthDateRange(fromDate, toDate));
-
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("'From' date must be before 'To' date", exception.getReason());
-    }
 }

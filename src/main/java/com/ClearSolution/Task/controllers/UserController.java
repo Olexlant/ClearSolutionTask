@@ -2,7 +2,9 @@ package com.ClearSolution.Task.controllers;
 
 import com.ClearSolution.Task.entities.User;
 import com.ClearSolution.Task.services.UserService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,30 +16,40 @@ import java.util.Map;
 public class UserController {
 
 
-    public UserService userService;
+    @Value("${registration.min-age}")
+    private int minAge;
+    private final UserService userService;
 
     public UserController(UserService userService) {
         this.userService = userService;
     }
 
-    @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        return userService.createUser(user);
+    @PostMapping("/create")
+    public ResponseEntity<?> createUser(@RequestBody User user) {
+        LocalDate minBirthDate = LocalDate.now().minusYears(minAge);
+        if (user.getBirthDate().isBefore(minBirthDate)) {
+            return userService.createUser(user);
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("User must be at least "+minAge+" years old");
+        }
+    }
+    @PutMapping("/{userId}/update")
+    public ResponseEntity<User> updateUser(@RequestBody User user, @PathVariable Long userId) {
+        User response = userService.updateUser(userId, user);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @PutMapping("/{userId}")
-    public ResponseEntity<User> updateUser(@PathVariable Long userId, @RequestBody User updatedUser) {
-        return userService.updateUser(userId, updatedUser);
-    }
-
-    @PatchMapping("/{userId}")
+    @PatchMapping("/{userId}/update")
     public ResponseEntity<User> updateUserFields(@PathVariable Long userId, @RequestBody Map<String, Object> fieldsToUpdate) {
-        return userService.updateUserFields(userId, fieldsToUpdate);
+        User response = userService.updateUserFields(userId, fieldsToUpdate);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @DeleteMapping("/{userId}")
+    @DeleteMapping("/{userId}/delete")
     public ResponseEntity<String> deleteUser(@PathVariable Long userId) {
-        return userService.deleteUser(userId);
+        userService.deleteUser(userId);
+        return new ResponseEntity<>("User delete", HttpStatus.OK);
     }
 
     @GetMapping("/search")
